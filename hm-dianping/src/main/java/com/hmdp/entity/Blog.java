@@ -43,7 +43,7 @@ public class Blog implements Serializable {
     /**
      * 用户图标
      */
-    @TableField(exist = false)
+    @TableField(exist = false)//不映射数据库字段
     private String icon;
     /**
      * 用户姓名
