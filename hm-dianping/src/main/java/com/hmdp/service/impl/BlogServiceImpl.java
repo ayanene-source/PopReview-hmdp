@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
 import static com.hmdp.utils.RedisConstants.FEED_KEY;
 
 /**
@@ -84,7 +85,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         }
         Long userId = UserHolder.getUser().getId();
         //2.判断登录用户是否已点赞
-        String key = "blog:liked:" + blog.getId();
+        String key = BLOG_LIKED_KEY + blog.getId();
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         blog.setIsLike(score != null);
     }
@@ -94,7 +95,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         //1/获取登录用户
         Long userId = UserHolder.getUser().getId();
         //2.判断登录用户是否已点赞
-        String key = "blog:liked:" + id;
+        String key = BLOG_LIKED_KEY + id;
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         if(score == null){
             //3.未点赞，则点赞
@@ -115,15 +116,13 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                 stringRedisTemplate.opsForZSet().remove(key,userId.toString());
             }
         }
-
-
-        return null;
+        return Result.ok();
     }
 
     @Override
     public Result queryBlogLikes(Long id) {
         //1.查询top5的点赞用户 zrange key 0 4
-        String key = "blog:liked:" + id;
+        String key = BLOG_LIKED_KEY + id;
         Set<String> top5 = stringRedisTemplate.opsForZSet().range(key, 0, 4);
         if(top5 == null || top5.isEmpty()){
             return Result.ok();

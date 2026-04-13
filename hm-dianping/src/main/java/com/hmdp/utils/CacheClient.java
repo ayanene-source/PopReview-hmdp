@@ -1,5 +1,6 @@
 package com.hmdp.utils;
 
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
@@ -10,12 +11,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.hmdp.utils.RedisConstants.*;
+import static com.hmdp.utils.SimpleRedisLock.UNLOCK_SCRIPT;
 
 @Slf4j
 @Component
@@ -74,12 +77,19 @@ public class CacheClient {
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
     //带有逻辑过期时间的缓存查询机制
-    public <R,ID>R queryWithLogicalExpire(String keyRrefix,ID id, Class<R> type, Function<ID,R> dbFallback,Long time, TimeUnit unit){
-        String key = keyRrefix + id;
+    public <R, ID> R queryWithLogicalExpire(
+            String keyPrefix,
+            String lockKeyPrefix,
+            ID id,
+            Class<R> type,
+            Function<ID, R> dbFallback,
+            Long time,
+            TimeUnit unit){
+        String key = keyPrefix + id;
         //1.从redis中查询
         String Json = stringRedisTemplate.opsForValue().get(key);
         //2.如果未命中，直接返回
-        if (StrUtil.isBlank(Json)) {
+        if (StrUtil.isBlank(Json)) {//结果是 null 或空字符串
             return null;
         }
         //3.命中，需要把json反序列化为对象
@@ -97,10 +107,10 @@ public class CacheClient {
         //5.2 已过期，需要缓存重建
         //6.缓存重建
         //6.1 尝试获取互斥锁
-        String lockKey = LOCK_SHOP_KEY + id;
-        boolean isLock = tryLock(lockKey);
+        String lockKey = lockKeyPrefix + id;
+        String lockValue = tryLock(lockKey);
         //6.2判断是否获取锁成功
-        if (isLock) {
+        if (lockValue != null) {
             //6.3 成功，开启新线程，实现缓存重建
             CACHE_REBUILD_EXECUTOR.submit(() -> {
                 try {
@@ -113,21 +123,85 @@ public class CacheClient {
                     throw new RuntimeException(e);
                 }finally{
                     //释放锁
-                    unLock(lockKey);
+                    unLock(lockKey, lockValue);
                 }
             });
         }
-        //6.4返回过期的店铺数据
+        //6.4返回旧数据作为兜底（无论是否获取锁，都不阻塞用户请求）
         return r;
     }
     //尝试获取互斥锁
-    private boolean tryLock(String key) {
-        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
-        return BooleanUtil.isTrue(flag);
+//    private boolean tryLock(String key) {
+//        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
+//        return BooleanUtil.isTrue(flag);
+//    }
+
+    public <R, ID> R queryWithLogicalExpireFallback(
+            String keyPrefix,
+            String lockKeyPrefix,
+            ID id,
+            Class<R> type,
+            Function<ID, R> dbFallback,
+            Long time,
+            TimeUnit unit) {
+        String key = keyPrefix + id;
+        String json = stringRedisTemplate.opsForValue().get(key);
+        if (StrUtil.isBlank(json)) {
+            if (json != null) {
+                return null;
+            }
+            R r = dbFallback.apply(id);
+            if (r == null) {
+                stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null;
+            }
+            this.setWithLogicalExpire(key, r, time, unit);
+            return r;
+        }
+
+        RedisData redisData = JSONUtil.toBean(json, RedisData.class);
+        JSONObject data = (JSONObject) redisData.getData();
+        R r = JSONUtil.toBean(data, type);
+        LocalDateTime expireTime = redisData.getExpireTime();
+        if (expireTime.isAfter(LocalDateTime.now())) {
+            return r;
+        }
+
+        String lockKey = lockKeyPrefix + id;
+        String lockValue = tryLock(lockKey);
+        if (lockValue != null) {
+            CACHE_REBUILD_EXECUTOR.submit(() -> {
+                try {
+                    R freshData = dbFallback.apply(id);
+                    if (freshData == null) {
+                        stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
+                        return;
+                    }
+                    this.setWithLogicalExpire(key, freshData, time, unit);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    unLock(lockKey, lockValue);
+                }
+            });
+        }
+        return r;
+    }
+
+    private static final String ID_PREFIX = UUID.randomUUID().toString(true) + "-";
+    private String tryLock(String key) {
+        String lockValue = ID_PREFIX + UUID.randomUUID().toString(true);
+        Boolean flag = stringRedisTemplate.opsForValue()
+                .setIfAbsent(key, lockValue, LOCK_SHOP_TTL, TimeUnit.SECONDS);
+        return BooleanUtil.isTrue(flag) ? lockValue : null;
     }
 
     //释放锁
-    private void unLock(String key) {
-        stringRedisTemplate.delete(key);
+    private void unLock(String key, String lockValue) {
+        stringRedisTemplate.execute(
+                UNLOCK_SCRIPT,
+                Collections.singletonList(key),
+                lockValue
+        );
     }
 }

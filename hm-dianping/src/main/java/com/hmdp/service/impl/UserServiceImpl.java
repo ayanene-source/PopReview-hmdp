@@ -12,20 +12,25 @@ import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.RegexUtils;
+import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
+import static com.hmdp.utils.SystemConstants.USER_NICK_NAME_PREFIX;
 
 /**
  * <p>
@@ -98,14 +103,67 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 // 设置有效期
         stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
 
+        //7.5 登陆成功则删除验证码信息
+        stringRedisTemplate.delete(LOGIN_CODE_KEY + phone);
         return Result.ok(token);
 
+    }
+
+    @Override
+    public Result logout(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return Result.ok();
+        }
+        stringRedisTemplate.delete(LOGIN_USER_KEY + token);
+        return Result.ok();
+    }
+
+    @Override
+    public Result sign() {
+        //1. 获取当前登录用户
+        Long userId = UserHolder.getUser().getId();
+        //2.获取日期
+        LocalDateTime now = LocalDateTime.now();
+        //3.拼接key
+        String key = USER_SIGN_KEY + userId + ":" + now.getYear() + ":" + now.getMonthValue();
+
+        //4.今天是本月的第几天
+        int day = now.getDayOfMonth();
+        //5.写入Redis setbit key offset 1
+        stringRedisTemplate.opsForValue().setBit(key, day - 1, true);
+        return Result.ok();
+    }
+
+    @Override
+    public Result signCount() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime now = LocalDateTime.now();
+        String key = USER_SIGN_KEY + userId + ":" + now.getYear() + ":" + now.getMonthValue();
+        int day = now.getDayOfMonth();
+
+        List<Long> result = stringRedisTemplate.opsForValue().bitField(
+                key,
+                BitFieldSubCommands.create()
+                        .get(BitFieldSubCommands.BitFieldType.unsigned(day))
+                        .valueAt(0)
+        );
+        if (result == null || result.isEmpty() || result.get(0) == null) {
+            return Result.ok(0);
+        }
+
+        long num = result.get(0);
+        int count = 0;
+        while ((num & 1) == 1) {
+            count++;
+            num >>>= 1;
+        }
+        return Result.ok(count);
     }
 
     private User createUserWithPhone(String phone) {
         User user = new User();
         user.setPhone(phone);
-        user.setNickName(RandomUtil.randomString(10));
+        user.setNickName(USER_NICK_NAME_PREFIX + RandomUtil.randomString(10));
         save(user);
         return user;
     }
