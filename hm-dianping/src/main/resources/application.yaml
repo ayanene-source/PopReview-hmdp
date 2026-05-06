@@ -5,13 +5,13 @@ spring:
     name: hmdp
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: "0721"
+    url: ${HMDP_DB_URL:jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${HMDP_DB_USERNAME:root}
+    password: ${HMDP_DB_PASSWORD:0721}
   redis:
-    host: 192.168.100.128
-    port: 6379
-    password: "0721"
+    host: ${HMDP_REDIS_HOST:192.168.100.128}
+    port: ${HMDP_REDIS_PORT:6379}
+    password: ${HMDP_REDIS_PASSWORD:0721}
     lettuce:
       pool:
         max-active: 10
@@ -25,3 +25,5 @@ mybatis-plus:
 logging:
   level:
     com.hmdp: debug
+hmdp:
+  image-upload-dir: ${HMDP_IMAGE_UPLOAD_DIR:${user.dir}/../nginx-1.18.0/html/hmdp/imgs}

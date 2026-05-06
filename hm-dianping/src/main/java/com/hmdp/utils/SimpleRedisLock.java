@@ -24,7 +24,7 @@ public class SimpleRedisLock implements ILock{
     // 锁的value值前缀
     private static final String ID_PREFIX = UUID.randomUUID().toString(true) + "-";
     // 释放锁的Lua脚本初始化
-    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
+    public static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
     static {
         UNLOCK_SCRIPT = new DefaultRedisScript<>();
         UNLOCK_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
