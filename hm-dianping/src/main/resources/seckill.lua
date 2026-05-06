@@ -1,14 +1,15 @@
--- 订单id
-local voucherId = ARGV[1]
--- 用户id
-local userId = ARGV[2]
--- 新增orderId，但是变量名用id就好，因为VoucherOrder实体类中的orderId就是用id表示的
-local id = ARGV[3]
--- 优惠券key
-local stockKey = 'seckill:stock:' .. voucherId
--- 订单key
-local orderKey = 'seckill:order:' .. voucherId
+-- ========== 接收参数 ==========
+local voucherId = ARGV[1]   -- 第1个参数：优惠券ID
+local userId = ARGV[2]      -- 第2个参数：用户ID
+local id = ARGV[3]          -- 第3个参数：订单ID
+
+-- ========== 定义Key ==========
+local stockKey = 'seckill:stock:' .. voucherId    -- 库存key，如 seckill:stock:5
+local orderKey = 'seckill:order:' .. voucherId    -- 已购用户集合key，如 seckill:order:5
 -- 判断库存是否充足
+--redis.call('get', stockKey) → 执行Redis命令 GET seckill:stock:5，获取库存值
+--tonumber(...) → 把字符串转成数字（Redis返回的是字符串 "100"）
+--如果库存 <= 0 → 直接返回 1（表示库存不足）
 if (tonumber(redis.call('get', stockKey)) <= 0) then
     return 1
 end
