@@ -1,5 +1,7 @@
 # PopReview HMDP
 
+[中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
+
 基于 Spring Boot 的本地生活服务平台后端。项目覆盖商户查询、短信登录、博客互动、关注推送与优惠券秒杀等业务场景，并重点演示 Redis 在缓存治理、高并发控制和异步削峰中的应用。
 
 ## 技术栈
