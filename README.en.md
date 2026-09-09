@@ -73,11 +73,3 @@ mvn clean package
 java -jar target/hm-dianping-0.0.1-SNAPSHOT.jar
 ```
 
-## Additional Documentation
-
-- [Project highlights and interview notes (Chinese)](hm-dianping/docs/hmdp-interview-prep.md)
-- [Resume project notes (Chinese)](hm-dianping/docs/resume-project-notes.md)
-
-## Notes
-
-This is a monolithic learning and demonstration project. Production deployments should add multi-instance consumer coordination, retry and dead-letter handling, monitoring and alerting, centralized configuration, and stronger secret management.
