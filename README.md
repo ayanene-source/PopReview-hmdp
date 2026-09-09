@@ -71,7 +71,3 @@ mvn clean package
 java -jar target/hm-dianping-0.0.1-SNAPSHOT.jar
 ```
 
-
-## 说明
-
-本项目为学习与演示用途的单体后端。生产化部署时，建议进一步完善多实例消费者协调、失败重试与死信队列、监控告警、配置中心和敏感信息管理。
