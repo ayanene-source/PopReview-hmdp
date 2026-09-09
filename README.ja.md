@@ -73,11 +73,3 @@ mvn clean package
 java -jar target/hm-dianping-0.0.1-SNAPSHOT.jar
 ```
 
-## 関連ドキュメント
-
-- [プロジェクトのポイントと面接メモ（中国語）](hm-dianping/docs/hmdp-interview-prep.md)
-- [履歴書向けプロジェクト説明（中国語）](hm-dianping/docs/resume-project-notes.md)
-
-## 補足
-
-本プロジェクトは学習・デモ用のモノリシックなバックエンドです。本番運用では、複数インスタンス間のコンシューマー協調、リトライとデッドレター処理、監視・アラート、設定管理、シークレット管理を追加することを推奨します。
