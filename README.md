@@ -71,10 +71,6 @@ mvn clean package
 java -jar target/hm-dianping-0.0.1-SNAPSHOT.jar
 ```
 
-## 项目文档
-
-- [项目亮点与面试准备](hm-dianping/docs/hmdp-interview-prep.md)
-- [简历项目说明](hm-dianping/docs/resume-project-notes.md)
 
 ## 说明
 
